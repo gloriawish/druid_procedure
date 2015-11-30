@@ -3352,7 +3352,9 @@ public class MySqlStatementParser extends SQLStatementParser {
 	{
 		accept(Token.LEAVE);
 		MySqlLeaveStatement leaveStmt=new MySqlLeaveStatement();
-		leaveStmt.setLabelName(exprParser.name().getSimpleName());
+		if(lexer.token()!=Token.SEMI) {
+			leaveStmt.setLabelName(exprParser.name().getSimpleName());
+		}
 		accept(Token.SEMI);
 		return leaveStmt;
 	}

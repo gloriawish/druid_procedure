@@ -20,7 +20,6 @@ import java.util.Stack;
 
 import javax.sql.DataSource;
 
-import com.alibaba.druid.bvt.sql.mysql.SQLUtilsAddConditionTest_oracle;
 import com.alibaba.druid.pool.DruidDataSourceFactory;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLDataType;
@@ -36,6 +35,7 @@ import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlCreateProcedureStatem
 import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlDeclareStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlIfStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlIfStatement.MySqlElseIfStatement;
+import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlLeaveStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlLoopStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlRepeatStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlSelectIntoStatement;
@@ -100,7 +100,7 @@ public class MySqlProcedureExecutor {
 	
 	//variable store stack
 	private static Stack<Map<String,Object>> stack=new Stack<Map<String,Object>>();
-	
+	private static String wantLeaveLable = null;
 	private static Connection connection;
 	static
 	{
@@ -241,6 +241,18 @@ public class MySqlProcedureExecutor {
 		else{
 			for (int i = 0; ret==SUCCESS && i < list.size(); i++) {
 				ret=executeStatement(list.get(i));
+				//add [support leave label] 20151130:b
+				if (list.get(i) instanceof MySqlWhileStatement && ret == LEAVE) { //如果遇到了一个LEAVEL语句，首先判断是否是leave某个标签，如果不是则退出当前循环(什么也不用做)
+					if (wantLeaveLable != null) { //说明想退出某一个label循环
+						MySqlWhileStatement whileStmt = (MySqlWhileStatement)list.get(i);
+						if(whileStmt.getLabelName() != null && whileStmt.getLabelName().equals(wantLeaveLable)) {
+							ret = SUCCESS;
+						}
+					} else {
+						ret = SUCCESS;
+					}
+				}
+				//add:e
 			}
 		}
 		return ret;
@@ -327,7 +339,7 @@ public class MySqlProcedureExecutor {
 			}
 		}
 		//执行else分支
-		if(is_need_else)
+		if(is_need_else && if_stmt.getElseItem() != null)
 		{
 			for (int i = 0; i < if_stmt.getElseItem().getStatements().size(); i++) {
 				ret=executeStatements(if_stmt.getElseItem().getStatements());
@@ -398,9 +410,9 @@ public class MySqlProcedureExecutor {
 	}	
 	private static int executeLeave(SQLStatement stmt)
 	{
-		int ret=SUCCESS;
-		//MySqlLeaveStatement leave_stmt=(MySqlLeaveStatement)stmt;
-		ret=LEAVE;
+		int ret=LEAVE;
+		MySqlLeaveStatement leave_stmt=(MySqlLeaveStatement)stmt;
+		wantLeaveLable = leave_stmt.getLabelName();
 		return ret;
 	}
 	
@@ -702,6 +714,7 @@ public class MySqlProcedureExecutor {
 			}
 		}
 	}
+	@SuppressWarnings("unused")
 	private static void showStack()
 	{
 		procedureLog("begin*******************************",LogLevel.DEBUG);
