@@ -36,7 +36,16 @@ import com.alibaba.druid.stat.TableStat.Column;
 public class MySqlCreateProcedureTest7 extends MysqlTest {
 
     public void test_0() throws Exception {
-    	String sql="create or replace procedure sp_name(level int,age int)"+
+//    	String sql="create or replace procedure sp_name(level int,age int)"+
+//				" begin"+
+//				" declare x,y,z int;"+
+//				" lable_1: while x do"+
+//				" insert into test values(id,age);"+
+//				" leave;"+
+//				" end while lable_1;"+
+//				" end";
+	
+    	String sql="create procedure sp_name(level int,age int)"+
 				" begin"+
 				" declare x,y,z int;"+
 				" lable_1: while x do"+
@@ -44,7 +53,6 @@ public class MySqlCreateProcedureTest7 extends MysqlTest {
 				" leave;"+
 				" end while lable_1;"+
 				" end";
-	
     	MySqlStatementParser parser=new MySqlStatementParser(sql);
     	List<SQLStatement> statementList = parser.parseStatementList();
     	SQLStatement statemen = statementList.get(0);

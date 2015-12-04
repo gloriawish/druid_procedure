@@ -21,6 +21,7 @@ import org.junit.Assert;
 
 import com.alibaba.druid.sql.MysqlTest;
 import com.alibaba.druid.sql.ast.SQLStatement;
+import com.alibaba.druid.sql.ast.statement.SQLDropProcedureStatement;
 import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
 
@@ -34,6 +35,10 @@ public class MySqlDropProcedureTest extends MysqlTest {
         SQLStatement statemen = statementList.get(0);
         print(statementList);
 
+        SQLDropProcedureStatement drop = (SQLDropProcedureStatement) statemen;
+        System.out.println(drop.getName().getSimpleName());
+        System.out.println(drop.isIfExists());
+        
         Assert.assertEquals(1, statementList.size());
 
         MySqlSchemaStatVisitor visitor = new MySqlSchemaStatVisitor();

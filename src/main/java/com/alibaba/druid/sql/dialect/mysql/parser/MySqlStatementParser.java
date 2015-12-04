@@ -380,9 +380,13 @@ public class MySqlStatementParser extends SQLStatementParser {
         }
         //parse create procedure
  		if (lexer.token() == Token.PROCEDURE) {
+ 			
+ 			//delete [fix bug create or replace] 20151204 
+ 			/*
  			if (replace) {
  				lexer.reset(markBp, markChar, Token.CREATE);
- 			}
+ 			}*/
+ 			lexer.reset(markBp, markChar, Token.CREATE);
  			return parseCreateProcedure();
  		}
 

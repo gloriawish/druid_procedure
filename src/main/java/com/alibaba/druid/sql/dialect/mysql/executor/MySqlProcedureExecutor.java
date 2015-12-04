@@ -20,6 +20,7 @@ import java.util.Stack;
 
 import javax.sql.DataSource;
 
+import com.alibaba.druid.bvt.sql.mysql.MySqlDropProcedureTest;
 import com.alibaba.druid.pool.DruidDataSourceFactory;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLDataType;
@@ -28,6 +29,7 @@ import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.ast.expr.SQLVariantRefExpr;
 import com.alibaba.druid.sql.ast.statement.SQLAssignItem;
 import com.alibaba.druid.sql.ast.statement.SQLCallStatement;
+import com.alibaba.druid.sql.ast.statement.SQLDropProcedureStatement;
 import com.alibaba.druid.sql.ast.statement.SQLSetStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlCaseStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlCaseStatement.MySqlWhenStatement;
@@ -71,6 +73,10 @@ public class MySqlProcedureExecutor {
 	public static int PARAM_SIZE_ERROR=-8;//参数错误
 	public static int OTHER_ERROR=Integer.MAX_VALUE;
 	public static int SQL_EXEC_ERROR=-9;//sql执行错误
+	
+	public static String USER = "";
+	public static String PASS = "";
+	public static String URL = "";
 	public static class VariableObject
 	{
 		private SQLDataType type;
@@ -102,15 +108,21 @@ public class MySqlProcedureExecutor {
 	private static Stack<Map<String,Object>> stack=new Stack<Map<String,Object>>();
 	private static String wantLeaveLable = null;
 	private static Connection connection;
-	static
-	{
-		// init the database connection
-		connection=getDruidConnection();
+//	static
+//	{
+//		// init the database connection
+//		connection=getDruidConnection();
+//	}
+	private static void init() {
+		if(connection == null)
+			connection=getDruidConnection();
 	}
 	
 	public static int executeCreateProcedure(MySqlCreateProcedureStatement sp,String source)
 	{
+		procedureLog("Begin Create Procedure, Name: "+sp.getName().getSimpleName(),LogLevel.INFO);
 		int ret=SUCCESS;
+		init();
 		String insert="insert into __store_procedure(procedureName,parameterNumber,source) values(?,?,?)";
 		try {
 			connection.setAutoCommit(false);
@@ -132,12 +144,15 @@ public class MySqlProcedureExecutor {
 			rollBack();
 			ret=OTHER_ERROR;
 		}
+		procedureLog("End Create Procedure, ret: " + ret,LogLevel.INFO);
 		return ret;
 	}
 	
 	public static int executeCallProcedure(SQLCallStatement call)
 	{
+		procedureLog("Begin Call Procedure, Name: "+call.getProcedureName().getSimpleName(),LogLevel.INFO);
 		int ret=SUCCESS;
+		init();
 		MySqlCreateProcedureStatement sp=null;
 		String storeProcedureName=null;
 		String sql=null;
@@ -167,9 +182,39 @@ public class MySqlProcedureExecutor {
 		{
 			ret=executeProcedure(sp,call.getParameters());
 		}
+		procedureLog("Begin Call Procedure, ret: " + ret, LogLevel.INFO);
 		return ret;
 	}
-	public static int executeProcedure(MySqlCreateProcedureStatement sp,List<SQLExpr> parameters)
+	
+	public static int executeDropProcedure(SQLDropProcedureStatement drop) {
+		
+		procedureLog("Begin Drop Procedure, Name: "+drop.getName().getSimpleName(),LogLevel.INFO);
+		int ret = SUCCESS;
+		init();
+		String delete="delete from __store_procedure where procedureName = ?";
+		try {
+			connection.setAutoCommit(false);
+			PreparedStatement stmt=	connection.prepareStatement(delete);
+			stmt.setString(1, drop.getName().getSimpleName());
+			int affectrow=stmt.executeUpdate();
+			if(!drop.isIfExists() && affectrow<=0)
+			{
+				ret=OTHER_ERROR;
+			}
+			else
+			{
+				commit();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			rollBack();
+			ret=OTHER_ERROR;
+		}
+		procedureLog("End Drop Procedure, ret: "+ret,LogLevel.INFO);
+		return ret;
+	}
+	
+	private static int executeProcedure(MySqlCreateProcedureStatement sp,List<SQLExpr> parameters)
 	{
 		int ret=SUCCESS;
 		if(sp==null || parameters==null)
@@ -745,9 +790,9 @@ public class MySqlProcedureExecutor {
 	{
 		Properties p = new Properties();
 		p.put("driverClassName", "com.mysql.jdbc.Driver");
-		p.put("url", "jdbc:mysql://127.0.0.1:3306/sp");
-		p.put("username", "root");
-		p.put("password", "root");
+		p.put("url", URL);
+		p.put("username", USER);
+		p.put("password", PASS);
 		p.put("filters", "stat");
 		p.put("initialSize", "2");
 		p.put("maxActive", "300");
@@ -767,7 +812,7 @@ public class MySqlProcedureExecutor {
 			return conn;
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
-			//e.printStackTrace();
+			e.printStackTrace();
 			return null;
 		}
 	}
@@ -810,6 +855,7 @@ public class MySqlProcedureExecutor {
 	{
 		try {
 			connection.commit();
+			connection.setAutoCommit(true);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
